@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import json
+from collections import deque
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -13,12 +14,16 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 
 
-@register("astrbot_plugin_image_tool", "Codex", "Generate images through the Images API", "0.1.0")
+@register("astrbot_plugin_image_tool", "Codex", "Generate images through the Images API", "0.2.0")
 class ImageTool(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.config = config
-        self.task: asyncio.Task | None = None
+        self.max_concurrent = max(1, int(config.get("max_concurrent", 1)))
+        self.max_pending = max(0, int(config.get("max_pending", 3)))
+        self.workers: set[asyncio.Task[None]] = set()
+        self.pending: deque[tuple[AstrMessageEvent, str]] = deque()
+        self.stopping = False
 
     @filter.llm_tool(name="generate_image")
     async def generate(self, event: AstrMessageEvent, prompt: str) -> str:
@@ -32,10 +37,26 @@ class ImageTool(Star):
             return "缺少图片描述。"
         if not self.config["api_key"].strip():
             return "生图服务尚未配置 API Key。"
-        if self.task is not None and not self.task.done():
-            return "已有生图任务正在处理，请勿自动重试。"
-        self.task = asyncio.create_task(self._generate_and_send(event, prompt))
+        if self.stopping:
+            return "生图工具正在停止，请勿自动重试。"
+        if len(self.workers) >= self.max_concurrent:
+            if len(self.pending) >= self.max_pending:
+                return "生图队列已满，请勿自动重试。"
+            self.pending.append((event, prompt))
+            return "生图任务已排队，完成后会自动发送图片。请勿重复提交。"
+        self.workers.add(asyncio.create_task(self._process_queue(event, prompt)))
         return "生图任务已提交，完成后会自动发送图片。请勿重复提交。"
+
+    async def _process_queue(self, event: AstrMessageEvent, prompt: str) -> None:
+        try:
+            await self._generate_and_send(event, prompt)
+            while self.pending:
+                event, prompt = self.pending.popleft()
+                await self._generate_and_send(event, prompt)
+        finally:
+            worker = asyncio.current_task()
+            if worker is not None:
+                self.workers.discard(worker)
 
     async def _generate_and_send(self, event: AstrMessageEvent, prompt: str) -> None:
         status = None
@@ -87,6 +108,10 @@ class ImageTool(Star):
                 logger.warning("Image failure notification could not be sent")
 
     async def terminate(self) -> None:
-        if self.task is not None:
-            self.task.cancel()
-            await asyncio.gather(self.task, return_exceptions=True)
+        self.stopping = True
+        self.pending.clear()
+        workers = tuple(self.workers)
+        for worker in workers:
+            worker.cancel()
+        await asyncio.gather(*workers, return_exceptions=True)
+        self.workers.clear()

@@ -11,4 +11,6 @@ The default model is `gpt-image-2.6-flare`. For a compatible endpoint, choose a 
 
 Enable `generate_image` in AstrBot's tool settings and use a chat model with tool calling enabled. Ask the bot to draw an image in natural language. The tool acknowledges the request immediately and sends the image to the originating conversation when ready.
 
-One generation can run at a time. The tool accepts PNG, JPEG and WebP and uses a temporary file for delivery. It does not retry failed requests. The plugin requires AstrBot, aiohttp and Pillow in its runtime.
+`max_concurrent` sets how many jobs can run at once (default 1). `max_pending` sets how many jobs can wait in the shared queue (default 3). Set it to 0 to reject new jobs when all workers are busy. Waiting jobs start in submission order and can finish out of order when concurrency exceeds 1. Reloading the plugin or restarting AstrBot discards pending requests.
+
+The tool accepts PNG, JPEG and WebP and uses a temporary file for delivery. It does not retry failed requests. The plugin requires AstrBot, aiohttp and Pillow in its runtime.

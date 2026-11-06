@@ -1,4 +1,4 @@
 name: astrbot_plugin_image_tool
 desc: Generate images through the OpenAI Images API or a compatible endpoint.
-version: v0.1.0
+version: v0.2.0
 author: Codex
