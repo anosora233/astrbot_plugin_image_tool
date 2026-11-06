@@ -1,0 +1,18 @@
+{
+  "base_url": {
+    "description": "Images API base URL including /v1",
+    "type": "string",
+    "default": "https://api.openai.com/v1"
+  },
+  "api_key": {
+    "description": "API key for the configured endpoint",
+    "type": "string",
+    "secret": true,
+    "default": ""
+  },
+  "model": {
+    "description": "Image model",
+    "type": "string",
+    "default": "gpt-image-2.6-flare"
+  }
+}
