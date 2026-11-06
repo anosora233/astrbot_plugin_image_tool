@@ -1,0 +1,22 @@
+{
+  "config": {
+    "base_url": {
+      "description": "API 基础地址",
+      "hint": "地址需包含 /v1。"
+    },
+    "api_key": {
+      "description": "API 密钥"
+    },
+    "model": {
+      "description": "生图模型"
+    },
+    "max_concurrent": {
+      "description": "并发任务数",
+      "hint": "设为 1 时按顺序执行。"
+    },
+    "max_pending": {
+      "description": "等待任务数",
+      "hint": "设为 0 时，忙时拒绝新任务。"
+    }
+  }
+}

@@ -14,7 +14,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 
 
-@register("astrbot_plugin_image_tool", "Codex", "Generate images through the Images API", "0.2.0")
+@register("astrbot_plugin_image_tool", "Codex", "Generate images through the Images API", "0.2.1")
 class ImageTool(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)

@@ -1,11 +1,12 @@
 {
   "base_url": {
-    "description": "Images API base URL including /v1",
+    "description": "API base URL",
+    "hint": "Include /v1.",
     "type": "string",
     "default": "https://api.openai.com/v1"
   },
   "api_key": {
-    "description": "API key for the configured endpoint",
+    "description": "API key",
     "type": "string",
     "secret": true,
     "default": ""
@@ -16,12 +17,14 @@
     "default": "gpt-image-2.6-flare"
   },
   "max_concurrent": {
-    "description": "Maximum simultaneous image jobs (at least 1)",
+    "description": "Concurrent jobs",
+    "hint": "1 runs jobs in order.",
     "type": "int",
     "default": 1
   },
   "max_pending": {
-    "description": "Maximum waiting jobs (0 rejects new jobs while all workers are busy)",
+    "description": "Waiting jobs",
+    "hint": "0 rejects new jobs when busy.",
     "type": "int",
     "default": 3
   }
