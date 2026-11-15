@@ -90,7 +90,12 @@ class ImageBatch:
     created_at: float
 
 
-@register("astrbot_plugin_image_tool", "Codex", "Generate images through the Images API", "0.4.0")
+@register(
+    "astrbot_plugin_image_tool",
+    "Codex",
+    "Generate images through the Images API",
+    "0.4.0",
+)
 class ImageTool(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -114,10 +119,17 @@ class ImageTool(Star):
 
     @filter.llm_tool(name="generate_image")
     async def generate(
-        self, event: AstrMessageEvent, prompt: str, count: int | float = 1,
+        self,
+        event: AstrMessageEvent,
+        prompt: str,
+        count: int | float = 1,
         reference_index: int | float = 0,
-        reference_indices: list | None = None, previous_image_index: int | float = 0,
-        size: str = "", quality: str = "", background: str = "", output_format: str = "",
+        reference_indices: list | None = None,
+        previous_image_index: int | float = 0,
+        size: str = "",
+        quality: str = "",
+        background: str = "",
+        output_format: str = "",
     ) -> str:
         """Generate or edit images when the user explicitly asks.
 
@@ -152,7 +164,10 @@ class ImageTool(Star):
         indices = [int(index) for index in reference_indices]
         if reference_index:
             indices = [int(reference_index)]
-        if len(indices) != len(set(indices)) or len(indices) + bool(previous_image_index) > 16:
+        if (
+            len(indices) != len(set(indices))
+            or len(indices) + bool(previous_image_index) > 16
+        ):
             return "每次最多使用 16 张参考图，编号不能重复。"
         if not self.config["api_key"].strip():
             return "生图服务尚未配置 API Key。"
@@ -173,12 +188,23 @@ class ImageTool(Star):
             references = [part for part in parts if isinstance(part, MessageImage)]
             for part in parts:
                 if isinstance(part, Reply):
-                    references.extend(item for item in part.chain or [] if isinstance(item, MessageImage))
+                    references.extend(
+                        item
+                        for item in part.chain or []
+                        if isinstance(item, MessageImage)
+                    )
             if any(index > len(references) for index in indices):
                 return "找不到指定的参考图，请让用户重新发送图片或引用含图消息。"
             selected.extend(references[index - 1] for index in indices)
-        aliases = {"square": "1024x1024", "landscape": "1536x1024", "portrait": "1024x1536"}
-        if not all(isinstance(value, str) for value in (size, quality, background, output_format)):
+        aliases = {
+            "square": "1024x1024",
+            "landscape": "1536x1024",
+            "portrait": "1024x1536",
+        }
+        if not all(
+            isinstance(value, str)
+            for value in (size, quality, background, output_format)
+        ):
             return "尺寸、画质、背景和格式须为字符串。"
         size = aliases.get(size, size)
         if size and size != "auto":
@@ -187,7 +213,9 @@ class ImageTool(Star):
                 return "尺寸须为 auto、square、landscape、portrait 或 WIDTHxHEIGHT。"
             width, height = map(int, match.groups())
             if (
-                width % 16 or height % 16 or max(width, height) > 3840
+                width % 16
+                or height % 16
+                or max(width, height) > 3840
                 or max(width, height) > 3 * min(width, height)
                 or not 655360 <= width * height <= 8294400
             ):
@@ -198,10 +226,18 @@ class ImageTool(Star):
             return "不支持的背景选项。"
         if output_format not in ("", "png", "jpeg", "webp"):
             return "输出格式须为 png、jpeg 或 webp。"
-        options.update({key: value for key, value in {
-            "size": size, "quality": quality, "background": background,
-            "output_format": output_format,
-        }.items() if value})
+        options.update(
+            {
+                key: value
+                for key, value in {
+                    "size": size,
+                    "quality": quality,
+                    "background": background,
+                    "output_format": output_format,
+                }.items()
+                if value
+            }
+        )
         if options.get("background") == "transparent":
             if output_format == "jpeg":
                 return "透明背景请使用 PNG 或 WebP 格式。"
@@ -234,29 +270,46 @@ class ImageTool(Star):
         failure_message = "图片未能生成或发送，请勿自动重试。"
         try:
             endpoint = "/images/generations"
-            payload = {"model": self.config["model"], "prompt": job.prompt, "n": job.count}
+            payload = {
+                "model": self.config["model"],
+                "prompt": job.prompt,
+                "n": job.count,
+            }
             payload.update(job.options)
             if job.references:
-                failure_message = "参考图无法读取或格式不受支持，请重新发送 PNG、JPEG 或 WebP 图片。"
+                failure_message = (
+                    "参考图无法读取或格式不受支持，请重新发送 PNG、JPEG 或 WebP 图片。"
+                )
                 encoded_references = []
                 total_reference_bytes = 0
                 for reference in job.references:
                     raw_reference = reference
                     if not isinstance(reference, bytes):
-                        raw_reference = await asyncio.wait_for(read_reference(reference), timeout=30)
+                        raw_reference = await asyncio.wait_for(
+                            read_reference(reference), timeout=30
+                        )
                     total_reference_bytes += len(raw_reference)
-                    if len(raw_reference) > MAX_REFERENCE_BYTES or total_reference_bytes > MAX_TOTAL_REFERENCE_BYTES:
+                    if (
+                        len(raw_reference) > MAX_REFERENCE_BYTES
+                        or total_reference_bytes > MAX_TOTAL_REFERENCE_BYTES
+                    ):
                         raise ReferenceTooLarge
                     mime = Image.MIME[image_format(raw_reference)]
                     encoded = base64.b64encode(raw_reference).decode("ascii")
-                    encoded_references.append({"image_url": f"data:{mime};base64,{encoded}"})
+                    encoded_references.append(
+                        {"image_url": f"data:{mime};base64,{encoded}"}
+                    )
                 endpoint = "/images/edits"
                 payload["images"] = encoded_references
                 failure_message = "图片未能生成或发送，请勿自动重试。"
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=180)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=180)
+            ) as session:
                 async with session.post(
                     self.config["base_url"].rstrip("/") + endpoint,
-                    headers={"Authorization": "Bearer " + self.config["api_key"].strip()},
+                    headers={
+                        "Authorization": "Bearer " + self.config["api_key"].strip()
+                    },
                     json=payload,
                     allow_redirects=False,
                 ) as response:
@@ -272,7 +325,9 @@ class ImageTool(Star):
                     result = json.loads(body)
                     if not isinstance(result, dict):
                         raise ValueError("Unexpected response")
-                    fields = tuple(key for key in ("data", "error", "output") if key in result)
+                    fields = tuple(
+                        key for key in ("data", "error", "output") if key in result
+                    )
                     images = result.get("data")
                     if not isinstance(images, list) or len(images) != job.count:
                         raise ValueError("Unexpected image count")
@@ -290,7 +345,11 @@ class ImageTool(Star):
                 if job.count == 1:
                     await event.send(event.image_result(paths[0]))
                 else:
-                    await event.send(event.chain_result([MessageImage.fromFileSystem(path) for path in paths]))
+                    await event.send(
+                        event.chain_result(
+                            [MessageImage.fromFileSystem(path) for path in paths]
+                        )
+                    )
                 self.history.pop(job.history_key, None)
                 self.history[job.history_key] = ImageBatch(
                     tuple(generated), dict(job.options), time.monotonic()
@@ -301,7 +360,10 @@ class ImageTool(Star):
                 failure_message = "参考图过大，请压缩后重新发送。"
             logger.warning(
                 "Image request failed: status=%s request_id=%r fields=%s error=%s",
-                status, request_id, fields, type(error).__name__,
+                status,
+                request_id,
+                fields,
+                type(error).__name__,
             )
             try:
                 await event.send(event.plain_result(failure_message))

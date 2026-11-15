@@ -69,12 +69,18 @@ def decorator(*args, **kwargs):
 
 def load_plugin():
     modules = {
-        "astrbot.api": types.SimpleNamespace(AstrBotConfig=dict, logger=logging.getLogger("test")),
+        "astrbot.api": types.SimpleNamespace(
+            AstrBotConfig=dict, logger=logging.getLogger("test")
+        ),
         "astrbot.api.event": types.SimpleNamespace(
             AstrMessageEvent=Event, filter=types.SimpleNamespace(llm_tool=decorator)
         ),
-        "astrbot.api.star": types.SimpleNamespace(Context=object, Star=Star, register=decorator),
-        "astrbot.api.message_components": types.SimpleNamespace(Image=Attachment, Reply=Reply),
+        "astrbot.api.star": types.SimpleNamespace(
+            Context=object, Star=Star, register=decorator
+        ),
+        "astrbot.api.message_components": types.SimpleNamespace(
+            Image=Attachment, Reply=Reply
+        ),
         "astrbot.core.utils.media_utils": types.SimpleNamespace(MediaResolver=object),
     }
     spec = importlib.util.spec_from_file_location(
@@ -166,14 +172,26 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         await self.drain()
         self.assertEqual(self.requests[0][1], dict(model="mock", prompt="plain", n=1))
         await self.tool.generate(
-            event, "styled", 2.0, size="portrait", quality="high",
-            background="transparent", output_format="webp",
+            event,
+            "styled",
+            2.0,
+            size="portrait",
+            quality="high",
+            background="transparent",
+            output_format="webp",
         )
         await self.drain()
         self.assertEqual(
             self.requests[-1][1],
-            dict(model="mock", prompt="styled", n=2, size="1024x1536",
-                 quality="high", background="transparent", output_format="webp"),
+            dict(
+                model="mock",
+                prompt="styled",
+                n=2,
+                size="1024x1536",
+                quality="high",
+                background="transparent",
+                output_format="webp",
+            ),
         )
         self.assertEqual(event.sent[-1], self.images[:2])
         self.assertTrue(all(not path.exists() for path in event.paths))
@@ -188,10 +206,19 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         await self.drain()
         url, payload = self.requests[-1]
         self.assertTrue(url.endswith("/images/edits"))
-        self.assertEqual(payload["images"], [
-            {"image_url": "data:image/jpeg;base64," + base64.b64encode(second).decode()},
-            {"image_url": "data:image/png;base64," + base64.b64encode(first).decode()},
-        ])
+        self.assertEqual(
+            payload["images"],
+            [
+                {
+                    "image_url": "data:image/jpeg;base64,"
+                    + base64.b64encode(second).decode()
+                },
+                {
+                    "image_url": "data:image/png;base64,"
+                    + base64.b64encode(first).decode()
+                },
+            ],
+        )
         await self.tool.generate(event, "single list", reference_indices=[1])
         await self.drain()
         single_reference = self.requests[-1][1]["images"]
@@ -212,9 +239,15 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         self.gate.set()
         await self.drain()
         payload = self.requests[-1][1]
-        self.assertEqual(payload["images"], [
-            {"image_url": "data:image/jpeg;base64," + base64.b64encode(self.images[1]).decode()}
-        ])
+        self.assertEqual(
+            payload["images"],
+            [
+                {
+                    "image_url": "data:image/jpeg;base64,"
+                    + base64.b64encode(self.images[1]).decode()
+                }
+            ],
+        )
         self.assertEqual(payload["size"], "1536x1024")
         self.assertEqual(payload["quality"], "low")
         await self.tool.generate(event, "again", previous_image_index=1)
@@ -222,7 +255,9 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.requests[-1][1]["quality"], "low")
         combined = Event([Attachment(self.images[1])])
         await self.tool.generate(
-            combined, "previous plus attachment", previous_image_index=1,
+            combined,
+            "previous plus attachment",
+            previous_image_index=1,
             reference_indices=[1],
         )
         await self.drain()
@@ -235,7 +270,9 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         for other in (Event(sender="another"), Event(origin="test:other")):
             receipt = await self.tool.generate(other, "edit", previous_image_index=1)
             self.assertIn("找不到", receipt)
-        with patch.object(plugin.time, "monotonic", return_value=plugin.time.monotonic() + 3601):
+        with patch.object(
+            plugin.time, "monotonic", return_value=plugin.time.monotonic() + 3601
+        ):
             receipt = await self.tool.generate(event, "expired", previous_image_index=1)
             self.assertIn("找不到", receipt)
         await self.tool.generate(event, "new")
@@ -244,18 +281,27 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
             other = Event(sender="another")
             await self.tool.generate(other, "newer")
             await self.drain()
-            self.assertNotIn((event.unified_msg_origin, event.sender), self.tool.history)
+            self.assertNotIn(
+                (event.unified_msg_origin, event.sender), self.tool.history
+            )
             self.assertIn((other.unified_msg_origin, other.sender), self.tool.history)
 
     async def test_invalid_inputs_never_request_images(self):
         event = Event([Attachment(self.images[0])])
         options = [
-            dict(size="1000x1000"), dict(size="4096x1024"), dict(size="128x128"),
-            dict(size=[]), dict(quality="ultra"), dict(output_format="gif"),
+            dict(size="1000x1000"),
+            dict(size="4096x1024"),
+            dict(size="128x128"),
+            dict(size=[]),
+            dict(quality="ultra"),
+            dict(output_format="gif"),
             dict(background="transparent", output_format="jpeg"),
-            dict(count=1.5), dict(reference_indices=[True]),
-            dict(reference_indices=[1, 1]), dict(reference_indices=[1] * 17),
-            dict(reference_indices=[2]), dict(reference_index=1, reference_indices=[1]),
+            dict(count=1.5),
+            dict(reference_indices=[True]),
+            dict(reference_indices=[1, 1]),
+            dict(reference_indices=[1] * 17),
+            dict(reference_indices=[2]),
+            dict(reference_index=1, reference_indices=[1]),
             dict(previous_image_index=float("nan")),
         ]
         for option in options:
@@ -292,7 +338,9 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0)
         self.gate.set()
         await self.drain()
-        self.assertEqual([payload["prompt"] for _, payload in self.requests], ["hold", "waiting"])
+        self.assertEqual(
+            [payload["prompt"] for _, payload in self.requests], ["hold", "waiting"]
+        )
         self.gate.clear()
         await self.tool.generate(event, "hold")
         await self.tool.generate(event, "discard")
@@ -316,7 +364,9 @@ class ImageToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(first.sent)
         self.gate.set()
         await self.drain()
-        self.assertEqual([payload["prompt"] for _, payload in self.requests], ["hold", "fast"])
+        self.assertEqual(
+            [payload["prompt"] for _, payload in self.requests], ["hold", "fast"]
+        )
         self.assertTrue(first.sent)
 
 
